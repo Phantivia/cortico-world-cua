@@ -8,7 +8,8 @@
  * again between chunks and stops as soon as the user moves in.
  */
 import type { ChildToMain, EngineRequest, InputResult, MainToChild, ScreenInfo, ScreenshotResult, Yield } from './engine-ipc.ts';
-import * as os from './engine/win32.ts';
+// the operating system's own calls: Win32 on Windows, CoreGraphics and AppleScript on macOS
+const os: typeof import('./engine/win32.ts') = process.platform === 'darwin' ? await import('./engine/darwin.ts') : await import('./engine/win32.ts');
 import { downscale, drawCursor, encodeJpeg, fit } from './engine/image.ts';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

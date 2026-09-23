@@ -332,6 +332,8 @@ export class CuaWorld implements World {
   envPromptVars(): Record<string, string> {
     const s = this.shotSize();
     return {
+      'cua.os': process.platform === 'darwin' ? 'Mac' : 'Windows',
+      'cua.keys': process.platform === 'darwin' ? '这是 Mac:复制粘贴、全选、保存用 cmd(cmd+c、cmd+v、cmd+a、cmd+s),切换应用用 cmd+tab。' : '复制粘贴、全选、保存用 ctrl(ctrl+c、ctrl+v、ctrl+a、ctrl+s),切换窗口用 alt+tab。',
       'cua.shot': `${s.width}×${s.height}`,
       'cua.control': this.cfg.control ? '允许操作鼠标和键盘' : '只允许截图和列窗口,不能操作鼠标键盘',
       'cua.idle': String(Math.round(this.cfg.userIdleMs / 100) / 10),
@@ -355,6 +357,8 @@ export class CuaWorld implements World {
         path: ENV_PROMPT_FILE,
         role: 'envPrompt',
         vars: [
+          { name: 'cua.os', description: '这台电脑的系统:Windows 或 Mac' },
+          { name: 'cua.keys', description: '这个系统常用的快捷键' },
           { name: 'cua.shot', description: '截图尺寸' },
           { name: 'cua.control', description: '是否允许操作鼠标键盘' },
           { name: 'cua.idle', description: '让位时长(秒)' },

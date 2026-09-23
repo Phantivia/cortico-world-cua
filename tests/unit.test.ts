@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import jpeg from 'jpeg-js';
 import { dryMountWorld } from 'cortico/extensions/dry-mount.ts';
 import { parseKeys } from '../src/engine/keys.ts';
+import { appleString, dialogAnswer, macKey, unicodeChunks } from '../src/engine/mac-keys.ts';
 import { downscale, drawCursor, encodeJpeg, fit } from '../src/engine/image.ts';
 import { CUA } from '../src/definition.ts';
 import { CUA_DEFAULTS } from '../src/config.ts';
@@ -110,5 +111,38 @@ describe('CuaWorld without the engine', () => {
     const report = await dryMountWorld(CUA as never, { scratchDir: mkdtempSync(join(tmpdir(), 'cua-dry-')) });
     expect(report.failures).toEqual([]);
     expect(report.warnings).toEqual([]);
+  });
+});
+
+describe('the macOS engine\'s pure parts', () => {
+  it('maps the keys cua_key names to Mac key codes, modifiers with their flags', () => {
+    const r = parseKeys('cmd+shift+s');
+    const keys = 'chords' in r ? r.chords[0]!.map((k) => macKey(k.vk)) : [];
+    expect(keys).toEqual([{ key: 0x37, flag: 0x100000 }, { key: 0x38, flag: 0x20000 }, { key: 0x01, flag: 0 }]);
+    for (const name of ['enter', 'esc', 'tab', 'backspace', 'delete', 'left', 'pagedown', 'f12', ';', '[', "'", 'a', '0']) {
+      const k = parseKeys(name);
+      expect('chords' in k && macKey(k.chords[0]![0]!.vk), name).not.toBeNull();
+    }
+    // keys a Mac keyboard does not have
+    for (const name of ['printscreen', 'menu', 'f24']) {
+      const k = parseKeys(name);
+      expect('chords' in k && macKey(k.chords[0]![0]!.vk), name).toBeNull();
+    }
+  });
+
+  it('reads the reply of a yes/no dialog', () => {
+    expect(dialogAnswer('button returned:可以, gave up:false\n', '可以')).toBe('yes');
+    expect(dialogAnswer('button returned:不行, gave up:false', '可以')).toBe('no');
+    expect(dialogAnswer('button returned:, gave up:true', '可以')).toBe('timeout');
+  });
+
+  it('quotes text for AppleScript', () => {
+    expect(appleString('say "hi" \\ bye')).toBe('"say \\"hi\\" \\\\ bye"');
+  });
+
+  it('cuts typed text into key events without splitting an emoji', () => {
+    const chunks = unicodeChunks('a'.repeat(19) + '😀b', 20);
+    expect(chunks.map((c) => c.length)).toEqual([19, 3]);
+    expect(String.fromCharCode(...chunks[1]!)).toBe('😀b');
   });
 });

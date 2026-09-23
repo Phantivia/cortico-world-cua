@@ -7,7 +7,7 @@
   </picture>
 </p>
 
-[Cortico](https://github.com/Pal-AI-Lab/Cortico) 的电脑操作 World,一个独立的扩展包:bot 看得见这台 Windows 电脑的主屏幕,
+[Cortico](https://github.com/Pal-AI-Lab/Cortico) 的电脑操作 World,一个独立的扩展包:bot 看得见这台电脑(Windows 或 macOS)的主屏幕,
 能移动和点击鼠标、滚动、打字、按组合键、列出和切换窗口。使用者一动鼠标键盘,操作就让位。
 [CortiCompanion](https://github.com/Pal-AI-Lab/CortiCompanion) 用它让 Coo 帮你操作电脑。
 
@@ -36,12 +36,12 @@ bot 每一轮第一次截图、列窗口或发输入之前,先问使用者这一
 这一轮剩下的调用都不执行,回执写明原因,下一轮再用时重新问。参数不合法的调用在问之前就被拒掉。
 
 怎么问由内嵌应用决定:`cuaDefinition({ askPermission })` 传入一个函数(比如用桌宠的气泡问),返回 `yes` / `no` / `timeout`,
-返回 `null` 表示此刻问不了。没传或返回 `null` 时,弹一个置顶的系统对话框(`MessageBoxTimeoutW`)。
+返回 `null` 表示此刻问不了。没传或返回 `null` 时,弹一个置顶的系统对话框(Windows 上是 `MessageBoxTimeoutW`,macOS 上是 AppleScript 的 `display dialog`)。
 
 ## 让位给使用者
 
 发出任何输入前,引擎先确认使用者已经静止 `userIdleMs`(默认 2 秒)。「使用者动过」的依据是两条可以核实的事实:
-系统记录的最后一次输入晚于引擎自己的最后一次注入(`GetLastInputInfo`),或者鼠标指针不在引擎上次放下的位置。
+系统记录的最后一次输入晚于引擎自己的最后一次注入(Windows 的 `GetLastInputInfo`,macOS 的 `CGEventSourceSecondsSinceLastEventType`),或者鼠标指针不在引擎上次放下的位置。
 等满 `maxYieldWaitMs`(默认 15 秒)使用者还在用,这次操作不执行,回执照实说明。打字按 16 个字符一段发送,
 每段之间再检查一次,使用者一动就停,回执报告实际打出了几个字。
 
@@ -51,11 +51,18 @@ bot 每一轮第一次截图、列窗口或发输入之前,先问使用者这一
 
 ## 实现
 
-操作系统调用都在引擎子进程(`src/engine-child.ts`)里,经 [koffi](https://koffi.dev/) 直接调 Win32:
-GDI `BitBlt`(带 `CAPTUREBLT`,透明与分层窗口也截得到)、`SendInput`、`EnumWindows`、`GetLastInputInfo`。
-子进程声明为 per-monitor DPI aware(v2),坐标都是物理像素。子进程崩溃只让在途的那次调用失败,下次调用重新拉起。
+操作系统调用都在引擎子进程(`src/engine-child.ts`)里,经 [koffi](https://koffi.dev/) 直接调系统接口,坐标都是主屏幕的物理像素。
+子进程崩溃只让在途的那次调用失败,下次调用重新拉起。
 
-只支持 Windows 的主屏幕;在别的系统上启用会被 `preflight` 拒绝。
+- Windows(`src/engine/win32.ts`):GDI `BitBlt`(带 `CAPTUREBLT`,透明与分层窗口也截得到)、`SendInput`、`EnumWindows`、
+  `GetLastInputInfo`;子进程声明为 per-monitor DPI aware(v2)。
+- macOS(`src/engine/darwin.ts`):系统自带的 `screencapture` 截图;鼠标键盘是 CoreGraphics 的 `CGEventPost`
+  (坐标按屏幕的缩放比从像素换成点,双击靠事件里的点击计数);窗口表来自 `CGWindowListCopyWindowInfo`;
+  切到某个窗口所属的应用、弹确认框用 AppleScript。`cua_key` 里的 `cmd` 是 Command 键。
+  macOS 要在「系统设置 → 隐私与安全性」里给应用两项权限:「录屏与系统录音」(截图、读窗口标题)和「辅助功能」(鼠标键盘);
+  第一次用时系统会问,没给之前工具回执写明去哪里打开。切换应用时 System Events 还会问一次能不能被控制。
+
+只支持 Windows 和 macOS 的主屏幕;在别的系统上启用会被 `preflight` 拒绝。
 
 ## 安装
 

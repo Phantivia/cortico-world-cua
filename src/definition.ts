@@ -9,7 +9,7 @@ export function cuaDefinition(assembly: Pick<CuaWorldOptions, 'askPermission'> =
     label: '电脑操作',
     defaults: () => structuredClone(CUA_DEFAULTS),
     preflight: () => {
-      if (process.platform !== 'win32') throw new Error('电脑操作 World 目前只支持 Windows。');
+      if (process.platform !== 'win32' && process.platform !== 'darwin') throw new Error('电脑操作 World 只支持 Windows 和 macOS。');
     },
     // ctx.cfg is the live `worlds.cua` section: every key is read at use
     create: (ctx) => new CuaWorld({ cfg: ctx.cfg, timezone: ctx.timezone, botName: ctx.botName, askPermission: assembly.askPermission }),
