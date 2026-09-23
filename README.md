@@ -1,9 +1,15 @@
-# cortico-world-cua
+<!-- Owner: src/definition.ts -->
 
-Owner: `src/definition.ts`
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.svg">
+    <img src="assets/banner.svg" alt="cortico-world-cua" width="806">
+  </picture>
+</p>
 
-[Cortico](https://github.com/Pal-AI-Lab/Cortico) 的电脑操作 World,以独立 npm 包发布:bot 看得见这台 Windows 电脑的主屏幕,
+[Cortico](https://github.com/Pal-AI-Lab/Cortico) 的电脑操作 World,一个独立的扩展包:bot 看得见这台 Windows 电脑的主屏幕,
 能移动和点击鼠标、滚动、打字、按组合键、列出和切换窗口。使用者一动鼠标键盘,操作就让位。
+[CortiCompanion](https://github.com/Pal-AI-Lab/CortiCompanion) 用它让 Coo 帮你操作电脑。
 
 ## 工具
 
@@ -45,7 +51,7 @@ GDI `BitBlt`(带 `CAPTUREBLT`,透明与分层窗口也截得到)、`SendInput`�
 
 ## 安装
 
-在 Cortico 控制台「扩展」页安装(本目录绝对路径,或 npm 包名 `cortico-world-cua`),整进程重启后在「World 总览」启用,
+在 Cortico 控制台「扩展」页安装(填本目录的绝对路径),整进程重启后在「World 总览」启用,
 或在 bot 的 `declares` 里加 `cua`。没有自定义面板,配置项在 World 页的配置里。
 
 ## 测试
