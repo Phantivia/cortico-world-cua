@@ -21,7 +21,11 @@ export type EngineRequest =
   | { op: 'type'; text: string; chunkDelayMs: number; yield: Yield }
   | { op: 'key'; chords: KeyCode[][]; yield: Yield }
   | { op: 'windows' }
-  | { op: 'focus'; handle: string; yield: Yield };
+  | { op: 'focus'; handle: string; yield: Yield }
+  | { op: 'confirm'; text: string; caption: string; timeoutMs: number };
+
+/** How a yes/no question to the person ended. */
+export type Answer = 'yes' | 'no' | 'timeout';
 
 export interface ScreenInfo {
   screen: { width: number; height: number };

@@ -83,6 +83,29 @@ describe('CuaWorld without the engine', () => {
     expect(await call(w, 'cua_key', { keys: 'ctrl+nope' })).toEqual({ text: '[cua_key 没执行] 不认识的键「nope」。', failed: true });
   });
 
+  it('asks once per turn before touching the screen; a refusal fails every call of that turn', async () => {
+    const asked: string[] = [];
+    let answer: 'no' | 'timeout' = 'no';
+    const w = new CuaWorld({ cfg: structuredClone(CUA_DEFAULTS), timezone: 'Asia/Shanghai', botName: 'Bot', askPermission: async (q) => { asked.push(q); return answer; } });
+    const shot = await call(w, 'cua_screenshot', {});
+    const click = await call(w, 'cua_click', { x: 1, y: 1 });
+    expect([shot.failed, click.failed]).toEqual([true, true]);
+    expect(shot.text).toContain('没有允许');
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toContain('Bot');
+    w.onTurnEnded();
+    answer = 'timeout';
+    expect((await call(w, 'cua_windows', {})).text).toContain('没有回应');
+    expect(asked).toHaveLength(2);
+  });
+
+  it('checks arguments before asking', async () => {
+    const asked: string[] = [];
+    const w = new CuaWorld({ cfg: structuredClone(CUA_DEFAULTS), timezone: 'Asia/Shanghai', askPermission: async (q) => { asked.push(q); return 'no'; } });
+    expect((await call(w, 'cua_click', { x: 5000, y: 10 })).text).toContain('不在截图范围内');
+    expect(asked).toEqual([]);
+  });
+
   it('passes the extension dry mount', async () => {
     const report = await dryMountWorld(CUA as never, { scratchDir: mkdtempSync(join(tmpdir(), 'cua-dry-')) });
     expect(report.failures).toEqual([]);

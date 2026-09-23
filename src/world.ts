@@ -8,6 +8,10 @@
  * pixels of that scaled image and are mapped back to physical pixels here. Input tools
  * first wait for the user to leave mouse and keyboard alone (`userIdleMs`), up to
  * `maxYieldWaitMs`, and fail without acting if the user keeps going.
+ *
+ * Every turn asks the person once before the first call that reads the screen or sends
+ * input: through `askPermission` when the embedding app gives one (a pet's bubble), else
+ * through a system dialog. A refusal stands until the turn ends.
  */
 import { fork, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -18,16 +22,28 @@ import { CUA_CONFIG_GROUP, CUA_ID, type CuaConfigSection } from './config.ts';
 import { CUA_TOOL_DECLS } from './tools.ts';
 import { fit } from './engine/image.ts';
 import { parseKeys } from './engine/keys.ts';
-import type { Button, ChildToMain, EngineRequest, InputResult, ScreenInfo, ScreenshotResult, WindowEntry, Yield } from './engine-ipc.ts';
+import type { Answer, Button, ChildToMain, EngineRequest, InputResult, ScreenInfo, ScreenshotResult, WindowEntry, Yield } from './engine-ipc.ts';
 
 const ENGINE_FILE = fileURLToPath(new URL('./engine-child.ts', import.meta.url));
 const ENV_PROMPT_FILE = fileURLToPath(new URL('./ENV_PROMPT.md', import.meta.url));
 const ENGINE_TIMEOUT_MS = 30_000;
+/** How long a permission question waits for the person. */
+const PERMISSION_TIMEOUT_MS = 60_000;
 
 export interface CuaWorldOptions {
   cfg: CuaConfigSection;
   timezone: string;
+  /** Names the bot in the permission question. */
+  botName?: string;
+  /**
+   * Asks the person whether the bot may use the computer this turn. null: this way of asking
+   * is not available right now, and the system dialog asks instead.
+   */
+  askPermission?: (question: string) => Promise<Answer | null>;
 }
+
+/** The person did not allow this turn's computer use. */
+class NotPermitted extends Error {}
 
 type Args = Record<string, unknown>;
 
@@ -41,9 +57,15 @@ export class CuaWorld implements World {
   private readonly pending = new Map<number, { done: (v: unknown) => void; fail: (e: Error) => void; timer: NodeJS.Timeout }>();
   private screen: { width: number; height: number } | null = null;
   private engineError: string | null = null;
+  /** This turn's answer, asked on first use; cleared when the turn ends. */
+  private permission: Promise<Answer> | null = null;
 
-  constructor(opts: CuaWorldOptions) {
+  constructor(private readonly opts: CuaWorldOptions) {
     this.cfg = opts.cfg;
+  }
+
+  onTurnEnded(): void {
+    this.permission = null;
   }
 
   async start(host: WorldHost): Promise<void> {
@@ -91,16 +113,36 @@ export class CuaWorld implements World {
     return child;
   }
 
-  private call<T>(req: EngineRequest): Promise<T> {
+  private async call<T>(req: EngineRequest): Promise<T> {
+    if (req.op !== 'info' && req.op !== 'confirm') await this.permit();
     if (!this.engine) { this.engine = this.spawn(); this.engineError = null; }
     const id = ++this.seq;
     const engine = this.engine;
     return new Promise<T>((done, fail) => {
-      const wait = 'yield' in req ? req.yield.maxWaitMs : 0;
+      const wait = 'yield' in req ? req.yield.maxWaitMs : req.op === 'confirm' ? req.timeoutMs : 0;
       const timer = setTimeout(() => { this.pending.delete(id); fail(new Error('引擎没有在期限内应答')); }, ENGINE_TIMEOUT_MS + wait);
       this.pending.set(id, { done: done as (v: unknown) => void, fail, timer });
       engine.send({ id, req });
     });
+  }
+
+  /* ---------- permission ---------- */
+
+  private async permit(): Promise<void> {
+    this.permission ??= this.askPermission();
+    const answer = await this.permission;
+    if (answer === 'yes') return;
+    throw new NotPermitted(answer === 'timeout'
+      ? `问了使用者能不能用电脑,${PERMISSION_TIMEOUT_MS / 1000} 秒没有回应,这一轮不能用。`
+      : '使用者这一轮没有允许用电脑。');
+  }
+
+  private async askPermission(): Promise<Answer> {
+    const who = this.opts.botName || 'bot';
+    const question = `${who} 想用你的电脑:看屏幕、动鼠标和键盘。这一次可以吗?`;
+    const viaApp = await this.opts.askPermission?.(question) ?? null;
+    if (viaApp) return viaApp;
+    return this.call<Answer>({ op: 'confirm', text: question, caption: '电脑操作', timeoutMs: PERMISSION_TIMEOUT_MS });
   }
 
   /* ---------- coordinates ---------- */
@@ -144,6 +186,7 @@ export class CuaWorld implements World {
         try {
           return await handlers[decl.name](args);
         } catch (err) {
+          if (err instanceof NotPermitted) return { text: `[${decl.name} 没执行] ${err.message}下一轮再用会重新询问。`, failed: true };
           return { text: `[${decl.name} 失败] ${(err as Error).message}`, failed: true };
         }
       },

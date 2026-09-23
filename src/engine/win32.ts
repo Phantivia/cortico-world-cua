@@ -59,6 +59,8 @@ const ShowWindow = user32.func('bool __stdcall ShowWindow(HWND hwnd, int cmd)');
 const BringWindowToTop = user32.func('bool __stdcall BringWindowToTop(HWND hwnd)');
 const DwmGetWindowAttributeInt = dwmapi.func('long __stdcall DwmGetWindowAttribute(HWND hwnd, uint32_t attr, _Out_ int *value, uint32_t size)');
 const DwmGetWindowAttributeRect = dwmapi.func('long __stdcall DwmGetWindowAttribute(HWND hwnd, uint32_t attr, _Out_ RECT *value, uint32_t size)');
+// exported by user32 since Windows XP without a header declaration; returns MB_TIMEDOUT when the time runs out
+const MessageBoxTimeoutW = user32.func('int __stdcall MessageBoxTimeoutW(HWND hwnd, str16 text, str16 caption, uint32_t type, uint16_t lang, uint32_t ms)');
 
 const SRCCOPY = 0x00CC0020, CAPTUREBLT = 0x40000000;
 const INPUT_MOUSE = 0, INPUT_KEYBOARD = 1;
@@ -67,6 +69,8 @@ const KEYEVENTF = { EXTENDEDKEY: 0x1, KEYUP: 0x2, UNICODE: 0x4 };
 const GWL_EXSTYLE = -20, WS_EX_TOOLWINDOW = 0x80;
 const DWMWA_EXTENDED_FRAME_BOUNDS = 9, DWMWA_CLOAKED = 14;
 const SW_RESTORE = 9;
+const MB_YESNO = 0x4, MB_ICONQUESTION = 0x20, MB_SETFOREGROUND = 0x10000, MB_TOPMOST = 0x40000;
+const IDYES = 6, MB_TIMEDOUT = 32000;
 
 SetProcessDpiAwarenessContext(-4);
 
@@ -225,4 +229,14 @@ export function focus(handle: string): boolean {
   const ok = SetForegroundWindow(hwnd);
   BringWindowToTop(hwnd);
   return ok;
+}
+
+/** A yes/no system dialog above every window. Runs on a koffi worker thread, so the engine keeps serving other requests. */
+export function askYesNo(text: string, caption: string, timeoutMs: number): Promise<'yes' | 'no' | 'timeout'> {
+  return new Promise((resolve, reject) => {
+    MessageBoxTimeoutW.async(null, text, caption, MB_YESNO | MB_ICONQUESTION | MB_SETFOREGROUND | MB_TOPMOST, 0, timeoutMs, (err: unknown, r: number) => {
+      if (err) reject(err as Error);
+      else resolve(r === IDYES ? 'yes' : r === MB_TIMEDOUT ? 'timeout' : 'no');
+    });
+  });
 }

@@ -129,6 +129,7 @@ async function handle(req: EngineRequest): Promise<unknown> {
       }
     });
     case 'windows': return os.windows();
+    case 'confirm': return os.askYesNo(req.text, req.caption, req.timeoutMs);
     case 'focus': {
       const w = await waitIdle(req.yield);
       if (w.yielded) return { ...info(), ...w, focused: false };
