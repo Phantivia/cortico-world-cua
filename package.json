@@ -1,6 +1,6 @@
 {
   "name": "cortico-world-cua",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Cortico World: operate the local desktop — screenshots, mouse, keyboard and windows — with a yield to the user whenever they touch the machine",
   "license": "MIT",
