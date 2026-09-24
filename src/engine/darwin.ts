@@ -219,7 +219,7 @@ export function chord(vks: Array<{ vk: number; extended: boolean }>): void {
   });
   let flags = 0;
   for (const k of keys) { flags |= k.flag; key(k.key, true, flags); }
-  for (const k of [...keys].reverse()) { key(k.key, false, flags); flags &= ~k.flag; }
+  for (const k of [...keys].reverse()) { flags &= ~k.flag; key(k.key, false, flags); }
 }
 
 /** Types text as Unicode key events, independent of the keyboard layout and input method. */
@@ -230,7 +230,9 @@ export function typeUnicode(text: string): void {
     if (line === '\n') { key(RETURN, true, 0); key(RETURN, false, 0); continue; }
     for (const units of unicodeChunks(line, UNICODE_CHUNK)) {
       for (const down of [true, false]) {
-        const ev = CGEventCreateKeyboardEvent(null, 0, down);
+        const ev = CGEventCreateKeyboardEvent(null, 0x31, down);
+        // A preceding shortcut must not turn text into Command/Option key presses.
+        CGEventSetFlags(ev, 0n);
         CGEventKeyboardSetUnicodeString(ev, units.length, units);
         post(ev);
       }
