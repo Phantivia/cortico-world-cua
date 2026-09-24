@@ -228,7 +228,9 @@ export function typeUnicode(text: string): void {
   const RETURN = macKey(0x0d)!.key;
   for (const line of text.replace(/\r/g, '').split(/(\n)/)) {
     if (line === '\n') { key(RETURN, true, 0); key(RETURN, false, 0); continue; }
-    for (const units of unicodeChunks(line, UNICODE_CHUNK)) {
+    // AppKit consumers expect a character at a time, not a whole text run.
+    const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(line);
+    for (const units of [...graphemes].flatMap(({ segment }) => unicodeChunks(segment, UNICODE_CHUNK))) {
       for (const down of [true, false]) {
         const ev = CGEventCreateKeyboardEvent(null, 0x31, down);
         // A preceding shortcut must not turn text into Command/Option key presses.

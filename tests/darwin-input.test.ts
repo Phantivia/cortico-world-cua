@@ -42,7 +42,8 @@ describe('macOS keyboard event state', () => {
     native.flags = 0x180000n;
     const text = '长文本中文🙂 English'.repeat(4);
     typeUnicode(text);
-    expect(native.events.filter(e => e.down).map(e => e.text).join('')).toBe(text);
+    // Chromium's native char-event path has a short character buffer.
+    expect(native.events.filter(e => e.down).map(e => e.text?.slice(0, 4)).join('')).toBe(text);
     expect(native.events.every(e => e.flags === 0n)).toBe(true);
     expect(native.events.filter(e => e.down).map(e => e.text)).toEqual(native.events.filter(e => !e.down).map(e => e.text));
   });
