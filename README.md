@@ -83,4 +83,5 @@ corepack pnpm test:e2e    # 端到端:会在这台电脑上真的移动鼠标、
 - `core.test.ts`:经过 Cortico Core 的完整一轮。一个事件唤醒 bot,脚本扮演的模型先截图,确认工具结果里带着
   `image/jpeg` 附件,再点击、打字、提交;窗口收到的文本与模型发出的一致。除了模型,其余都是真组件。
 
-`tsconfig.json` 与 vitest 配置把 `cortico/*` 指到同级的框架 checkout(`../BOT/src/`)。
+开发期 `cortico/*` 经 devDependency `cortico`(npm 上的框架包)解析。要对着本地未发版的框架改动开发,在本目录执行
+`pnpm link <框架 checkout>`;它会往 `pnpm-workspace.yaml` 写一条 `overrides`,提交前撤掉。
